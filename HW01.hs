@@ -1,10 +1,8 @@
 module HW01(validate,hanoi,hanoiN) where
-import Data.List(unfoldr)
+import Data.List(unfoldr,sort)
 import Data.Tuple(swap)
-import Data.List(minimumBy)
-import Data.Function(on)
 import Data.Function.Memoize
-
+import Data.Maybe(listToMaybe,maybeToList)
 --LUHN
 
 toDigitsRev :: Integer -> [Integer]
@@ -32,10 +30,25 @@ hanoi n a b c = concat [hanoi (n-1) a c b,[(a,b)],hanoi (n-1) c b a]
 
 -- HANOI N
 
-bigT :: Integer -> Int -> Int
-bigT = memoize2 (\d p -> length (hanoiN d [1..p]))
+bigT :: Int -> Int -> Maybe (Int,Int)
+bigT = memoFix2 bT
 
-hanoiN :: Integer -> [a] -> [Move a]
+bT :: (Int -> Int -> Maybe (Int,Int)) -> Int -> Int -> Maybe (Int,Int)
+bT _ _ 0 = Nothing
+bT _ 0 _ = Just (0,0) 
+bT _ _ 1 = Nothing 
+bT _ 1 _ = Just (1,1) 
+bT _ _ 2 = Nothing
+bT f n r = listToMaybe $ sort list  
+    where
+        list :: [(Int,Int)]
+        list = do
+            k <- [1..n-1]
+            a <- fmap fst . maybeToList $ f k r
+            b <- fmap fst . maybeToList $ f (n-k) (r-1)
+            return $ (2 * a + b,k)
+
+hanoiN :: Int -> [a] -> [Move a]
 hanoiN 0 _  = []
 hanoiN 1 (a:b:_) = [(a,b)]
 hanoiN n (a:b:c:rest) = concat [ step1 bestK, step2 bestK, step3 bestK]
@@ -43,9 +56,4 @@ hanoiN n (a:b:c:rest) = concat [ step1 bestK, step2 bestK, step3 bestK]
         step1 k = hanoiN k (a:c:b:rest)
         step2 k = hanoiN (n-k) (a:b:rest)
         step3 k = hanoiN k (c:b:a:rest)
-        lenRest = length rest
-        len k = 2 * bigT k (lenRest + 3) + bigT (n-k) (lenRest + 2)
-        bestK :: Integer
-        bestK = if null rest 
-            then n - 1 
-            else fromIntegral . minimumBy (compare `on` len) $  [1..n-1]
+        Just (_,bestK) = bigT n (length rest + 3)
